@@ -11,8 +11,10 @@
 // ChatGPT > Settings > Connectors (Developer Mode).
 
 import express from "express";
+import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { HEALING_QA, FALLBACK, DISCLAIMER, SITE_URL } from "./knowledge.js";
 
@@ -189,22 +191,46 @@ app.get("/", (_req, res) =>
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "om-sacred-space-healing" }));
 
+// ---------- stateful session management ----------
+// ChatGPT initializes once (POST initialize -> gets an Mcp-Session-Id header),
+// then reuses that session id for tools/list, tools/call, etc. We keep one
+// transport per session so the server remembers it was initialized.
+const transports = {};
+
 app.post("/mcp", async (req, res) => {
-  // Stateless: a fresh server + transport per request keeps things simple and
-  // horizontally scalable. Good enough for a read-only Q&A connector.
   try {
-    const server = buildServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined, // stateless: no session tracking
-    });
-    res.on("close", () => {
-      transport.close();
-      server.close();
-    });
-    await server.connect(transport);
+    const sessionId = req.headers["mcp-session-id"];
+    let transport;
+
+    if (sessionId && transports[sessionId]) {
+      // Existing session — reuse its transport.
+      transport = transports[sessionId];
+    } else if (!sessionId && isInitializeRequest(req.body)) {
+      // New session — create a transport and wire up the server.
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (sid) => {
+          transports[sid] = transport;
+        },
+      });
+      transport.onclose = () => {
+        if (transport.sessionId) delete transports[transport.sessionId];
+      };
+      const server = buildServer();
+      await server.connect(transport);
+    } else {
+      // No valid session and not an initialize request.
+      res.status(400).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Bad Request: No valid session ID provided" },
+        id: null,
+      });
+      return;
+    }
+
     await transport.handleRequest(req, res, req.body);
   } catch (err) {
-    console.error("MCP request error:", err);
+    console.error("MCP POST error:", err);
     if (!res.headersSent) {
       res.status(500).json({
         jsonrpc: "2.0",
@@ -214,6 +240,20 @@ app.post("/mcp", async (req, res) => {
     }
   }
 });
+
+// GET (server-sent events stream) and DELETE (session teardown) reuse the
+// session's transport.
+async function handleSessionRequest(req, res) {
+  const sessionId = req.headers["mcp-session-id"];
+  if (!sessionId || !transports[sessionId]) {
+    res.status(400).send("Invalid or missing session ID");
+    return;
+  }
+  await transports[sessionId].handleRequest(req, res);
+}
+
+app.get("/mcp", handleSessionRequest);
+app.delete("/mcp", handleSessionRequest);
 
 app.listen(PORT, () => {
   console.log(`Om Sacred Space healing connector listening on http://localhost:${PORT}/mcp`);
