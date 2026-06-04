@@ -139,7 +139,11 @@ function buildServer() {
       description:
         "Answer a question about sound healing, self-healing, energy work, or Om Sacred Space's services and sessions.",
       inputSchema: {
-        question: z.string().describe("The user's healing-related question"),
+        question: z
+          .string()
+          .describe(
+            "A general question about sound healing, self-healing, or Om Sacred Space's services. Do not include personal, medical, or identifying details."
+          ),
       },
       outputSchema: {
         answer: z.string(),
