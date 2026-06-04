@@ -4,3 +4,7 @@ npm-debug.log*
 .env.*
 .DS_Store
 *.log
+
+# Local-only helper scripts (Code Defender upload workaround + ad-hoc checks)
+.upload.sh
+.full-check.sh
