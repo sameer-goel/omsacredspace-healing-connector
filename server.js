@@ -12,6 +12,9 @@
 
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -190,10 +193,31 @@ app.use((_req, res, next) => {
 });
 
 app.get("/", (_req, res) =>
-  res.type("text/plain").send("Om Sacred Space healing connector — MCP endpoint at /mcp")
+  res
+    .type("text/plain")
+    .send(
+      "Om Sacred Space healing connector — MCP endpoint at /mcp · Privacy policy at /privacy"
+    )
 );
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "om-sacred-space-healing" }));
+
+// Privacy policy — required for ChatGPT app submission. Served with a
+// page-specific CSP that allows its inline styles (the global API CSP is stricter).
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let PRIVACY_HTML = "";
+try {
+  PRIVACY_HTML = readFileSync(join(__dirname, "privacy.html"), "utf8");
+} catch {
+  PRIVACY_HTML = "<!doctype html><title>Privacy</title><p>Privacy policy unavailable.</p>";
+}
+app.get(["/privacy", "/privacy.html"], (_req, res) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'"
+  );
+  res.type("html").send(PRIVACY_HTML);
+});
 
 // ---------- stateful session management ----------
 // ChatGPT initializes once (POST initialize -> gets an Mcp-Session-Id header),
