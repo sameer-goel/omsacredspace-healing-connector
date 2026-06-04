@@ -1,0 +1,16 @@
+# Render Blueprint for the Om Sacred Space healing connector.
+# Render auto-detects this file when you create a Blueprint from the repo,
+# or you can configure the same values manually in the dashboard.
+services:
+  - type: web
+    name: omsacredspace-healing-connector
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
