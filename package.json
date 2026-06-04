@@ -1,0 +1,20 @@
+{
+  "name": "omsacredspace-chatgpt-connector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Om Sacred Space healing connector for ChatGPT (MCP server with search + fetch + ask_healing tools).",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.1.0",
+    "zod": "^3.25.0"
+  }
+}
