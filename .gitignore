@@ -8,3 +8,6 @@ npm-debug.log*
 # Local-only helper scripts (Code Defender upload workaround + ad-hoc checks)
 .upload.sh
 .full-check.sh
+
+# local logo build helper
+submission/.make-logo.mjs
